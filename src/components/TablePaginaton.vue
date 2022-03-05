@@ -1,7 +1,7 @@
 /* eslint-disable */
 <!-- This example requires Tailwind CSS v2.0+ -->
 <template>
-  <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+  <div class="bg-white py-3 flex items-center justify-between border-t border-gray-200">
     <div class="flex-1 flex justify-between sm:hidden">
       <a href="#" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"> Previous </a>
       <a href="#" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"> Next </a>
@@ -67,6 +67,7 @@ export default {
     'current-page',
     'range',
     'total',
+    'number-of-pages'
   ],
 
   components: {
@@ -78,8 +79,7 @@ export default {
     const paginationShowLimit = 7;
 
     const paginationPages = computed(() => {
-      const numberOfPages = Math.ceil(props.total / props.range) || 0;
-      const arrayOfPages = [...Array(numberOfPages).keys()].map(x => ++x);
+      const arrayOfPages = [...Array(props.numberOfPages).keys()].map(x => ++x);
       return arrayOfPages;
     });
 

@@ -5,13 +5,13 @@
         <ActionForm @FetchRequest="HandleFetch"></ActionForm>
       </div>  
       <div class="flex flex-col">
-        <div class="overflow-x-auto">
+        <div class="">
           <div class="py-2 align-middle block min-w-full">
-            <div class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
-              <table class="min-w-full divide-y divide-gray-200 w-full relative">
-                <TableHeading :current-category="currentCategory" :category-list="categoryList"></TableHeading>
+            <div class="shadow border-b border-gray-200 sm:rounded-lg">
+              <div class="table-flex min-w-full divide-y divide-gray-200 w-full relative">
+                <TableHeading @CategoryChange="HandleCategoryChange" :current-category="currentCategory" :category-list="categoryList"></TableHeading>
                 <TableBody :rows="paginatedRows"></TableBody>
-              </table>
+              </div>
               <div :class="{hidden: !loading}">
                 <TableLoading></TableLoading>
               </div>
@@ -19,7 +19,12 @@
                 <TableLoadingError></TableLoadingError>
               </div>                
             </div>
-            <TablePaginaton @PaginationChange="HandlePaginationChange" :current-page="currentPagination" :range="paginationRange" :total="rows.length"></TablePaginaton>
+            <TablePaginaton @PaginationChange="HandlePaginationChange" 
+              :current-page="currentPagination" 
+              :range="paginationRange" 
+              :total="rows.length" 
+              :number-of-pages="numberOfPaginationPages">
+            </TablePaginaton>
           </div>
         </div>
       </div>
@@ -29,7 +34,7 @@
 
 
 <script>
-import { ref, nextTick } from "vue";
+import { ref, nextTick, computed } from "vue";
 import ActionForm from './ActionForm';
 import TableHeading from './TableHeading';
 import TableBody from './TableBody';
@@ -78,6 +83,7 @@ export default {
   },
 
   setup() {
+    const loadedRows = ref([]);
     const rows = ref([]);
     const paginatedRows = ref([]);
     const loading = ref(false);
@@ -87,17 +93,34 @@ export default {
     const currentCategory = ref('All');
     const categoryList = ref(['All']);
 
+    const numberOfPaginationPages = computed(() => Math.ceil(rows.value.length / paginationRange.value) || 0)
+    
+
+    function setTableRows(data) {
+      rows.value = loadedRows.value = data.entries;
+      let categories = getCategories(data.entries);
+      setCategories(categories);
+      setPaginationRows();
+    }
+
     function setPaginationRows() {
+      if (currentPagination.value > numberOfPaginationPages.value) {
+        currentPagination.value = 1;
+      }
+
       const startPaginateArray = ((currentPagination.value * paginationRange.value) - paginationRange.value);
       const endPaginateArray = startPaginateArray + paginationRange.value;
       paginatedRows.value = rows.value.slice(startPaginateArray, endPaginateArray);
     }
 
-    function setTableRows(data) {
-      rows.value = data.entries;
-      console.log(getCategories(data.entries))
-      let categories = getCategories(data.entries);
-      setCategories(categories);
+    function filterRowsByCategory(category) {
+      if (currentCategory.value ===  category) return;
+      currentCategory.value = category;
+      if (category === 'All') {
+        rows.value = loadedRows.value;
+      } else {
+        rows.value = loadedRows.value.filter(el => el['Category'] ===  category);
+      }
       setPaginationRows();
     }
 
@@ -131,23 +154,31 @@ export default {
     }
 
     function HandlePaginationChange(data) {
-      currentPagination.value = data;
+      currentPagination.value = Number(data);
       setPaginationRows();
       nextTick(() => {
         stayAtPageBottom();
       })      
     }
 
+    function HandleCategoryChange(category) {
+      filterRowsByCategory(category);
+    }    
+
     return {
+      loadedRows,
       rows,
       paginatedRows,
       paginationRange,
       currentPagination,
+      numberOfPaginationPages,
       HandlePaginationChange,
       HandleFetch,
       loading,
       loadingError,
       currentCategory,
+      categoryList,
+      HandleCategoryChange,
     }
   },
 }
