@@ -1,8 +1,7 @@
 <template>
     <div class="table-body-flex bg-white divide-y divide-gray-200">
         <div class="table-row-flex text-left" v-for="singleRow in rows" :key="singleRow.email">
-            <div class="table-cell table-cell-data-flex px-6 py-4 text-sm font-medium text-gray-900">
-                {{ singleRow['API'] }}
+            <div v-html="singleRow['API']" class="table-cell table-cell-data-flex px-6 py-4 text-sm font-medium text-gray-900">
             </div>
             <div class="table-cell table-cell-data-flex px-6 py-4 text-sm text-gray-500">
                 {{ singleRow['Description'] }}
