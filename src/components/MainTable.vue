@@ -76,6 +76,80 @@ const stayAtPageBottom = function() {
   window.scrollTo(0,document.body.scrollHeight);
 }
 
+function getCategoriesFromRows(list) {
+  let categories = []
+  
+  list.forEach(el => {
+    if (!categories.includes(el['Category'])) {
+      categories.push(el['Category'])
+    }
+  });
+
+  return categories;
+}
+
+function filterRowsByCategory(category, listToFilter) {
+  if (category === 'All') {
+    return listToFilter
+  } else {
+    return listToFilter.filter(el => el['Category'] ===  category);
+  }
+}
+
+function filterRowsByTitle(string, listToFilter) {
+  if (!string) {
+    listToFilter.forEach(el => {
+      cleanMarkersIfPresent(el);
+    })
+    return listToFilter;
+  }
+
+  let originalRows = listToFilter;
+  let filteredRows = [];
+  let regexTest;
+
+  //if matches in the begining of first word
+  regexTest = new RegExp(`^${string}`);
+  originalRows = filterAgainstRegex(originalRows, filteredRows, regexTest, true);
+
+  //if matches in the begining of second or nth word
+  regexTest = new RegExp(` ${string}`);
+  originalRows = filterAgainstRegex(originalRows, filteredRows, regexTest);
+
+  //if matches anywhere
+  regexTest = new RegExp(`${string}`);
+  originalRows = filterAgainstRegex(originalRows, filteredRows, regexTest);
+
+  originalRows;
+  return filteredRows;
+}
+
+function filterAgainstRegex(list, filteredRows, regex, clean) {
+  list = list.filter(el => {
+    if (clean) {
+      cleanMarkersIfPresent(el);
+    }
+    
+    const title = el['API'];
+    const result = title.match(regex);
+    if (result) {
+      el['API'] = title.replace(result[0], `<strong>${result[0]}</strong>`);
+      filteredRows.push(el)
+      return false;
+    } else {
+      return true;
+    }
+  }) ;
+
+  return list;
+}
+
+function cleanMarkersIfPresent(el) {
+  let title =  el['API'];
+  if (!title.includes('<strong>')) return;
+  el['API'] = title.replace(/<\/*strong>/g, '');               
+} 
+
 export default {
   components: {
     ActionForm,
@@ -98,16 +172,36 @@ export default {
     const categoryList = ref(['All']);
     const inputValue = ref('');
 
-    const numberOfPaginationPages = computed(() => Math.ceil(rows.value.length / paginationRange.value) || 0)
+    const numberOfPaginationPages = computed(() => Math.ceil(rows.value.length / paginationRange.value) || 0);
+    let inputEventTrottle = [];
+    async function initialTalbeInit() {
+      requestTableLoading(true);
+      try {
+        let result = await getDatafromApi();
+        loadedRows = [...result.entries];
+        rows.value = [...result.entries];
+        filterTable();
+      } catch(er) {
+        loadingError.value = true;
+        console.log(er);
+      }
+      requestTableLoading(false);     
+    }
 
-
-    function setTableRows(data) {
-      loadedRows = [...data.entries];
-      rows.value = [...data.entries];
-
-      let categories = getCategories(data.entries);
-      setCategories(categories);
+    function filterTable() {
+      requestTableLoading(true);
+      let newTableList = [...loadedRows];
+      newTableList = filterRowsByTitle(inputValue.value, newTableList);
+      syncCategories(newTableList);
+      newTableList = filterRowsByCategory(currentCategory.value, newTableList);
+      rows.value = newTableList;
       setPaginationRows();
+      requestTableLoading(false);
+    }
+
+    function syncCategories(currentList) {
+      const categoriesList = getCategoriesFromRows(currentList);
+      categoryList.value = ['All', ...categoriesList];
     }
 
     function setPaginationRows() {
@@ -120,127 +214,24 @@ export default {
       paginatedRows.value = rows.value.slice(startPaginateArray, endPaginateArray);
     }
 
-    function filterRowsByCategory(category, listToFilter) {
-      if (category === 'All') {
-        return listToFilter
-      } else {
-        return listToFilter.filter(el => el['Category'] ===  category);
+    function requestTableLoading(state) {
+      if (state) {
+        loadingError.value = false;
+        loading.value = true;
+      } else if (!state) {
+        setTimeout(() => {
+          loading.value = false;
+        }, 500)
       }
-    }
-
-    function filterRowsByTitle(string, listToFilter) {
-      console.log('filtering by title')
-      console.log(listToFilter);
-      
-      function removeStrongifPresent(el) {
-        let title =  el['API'];
-        if (!title.includes('<strong>')) return;
-        console.log('yes')
-        console.log(title.match(/<\/*strong>/g));
-        console.log(title.replace(/<\/*strong>/g, ''))
-        el['API'] = title.replace(/<\/*strong>/g, '');               
-      }
-
-      listToFilter = [...listToFilter]
-      listToFilter = filterRowsByCategory(currentCategory.value, listToFilter);     
-      
-      if (!string) {
-        listToFilter.forEach(el => {
-          removeStrongifPresent(el);
-        })
-        return listToFilter;
-      }
-
-      let originalRows = listToFilter;
-      let filteredRows = [];
-      let regexTest;
-      //if matches in the begining of first word
-      regexTest = new RegExp(`^${string}`);
-      originalRows = originalRows.filter(el => {
-        removeStrongifPresent(el);
-        
-        let title = el['API'];
-
-        let result = title.match(regexTest);
-        if (result) {
-          el['API'] = title.replace(result[0], `<strong>${result[0]}</strong>`);
-          filteredRows.push(el)
-          return false;
-        } else {
-          return true;
-        }
-      })
-
-      //if matches in the begining of second or nth word
-      regexTest = new RegExp(` ${string}`);
-      originalRows = originalRows.filter(el => {
-        let title = el['API'];
-
-        let result = title.match(regexTest);
-        if (result) {
-          el['API'] = title.replace(result[0], `<strong>${result[0]}</strong>`);
-          filteredRows.push(el)
-          return false;
-        } else {
-          return true;
-        }
-      })
-
-      //if matches anywhere
-      regexTest = new RegExp(`${string}`);
-      originalRows = originalRows.filter(el => {
-        let title = el['API'];
-
-        let result = title.match(regexTest);
-        if (result) {
-          el['API'] = title.replace(result[0], `<strong>${result[0]}</strong>`);
-          filteredRows.push(el)
-          return false;
-        } else {
-          return true;
-        }
-      })
-
-      originalRows;
-      return filteredRows;
-    }
-
-    function getCategories(list) {
-      let categories = []
-      
-      list.forEach(el => {
-        if (!categories.includes(el['Category'])) {
-          categories.push(el['Category'])
-        }
-      });
-
-      return categories
-    }
-
-    function setCategories(list) {
-      categoryList.value = ['All', ...list];
     }
 
     async function HandleFetch() {
-      loadingError.value = false;
-      loading.value = true;
-
       if (loadedRows.length) {
+        filterTable();
         await new Promise(res => {setTimeout(() => {res()}, 500);})
       } else {
-        try {
-          let result = await getDatafromApi();
-          setTableRows(result)
-        } catch(er) {
-          loadingError.value = true;
-          console.log(er);
-        }
+        initialTalbeInit();
       }
-
-      rows.value = filterRowsByTitle(inputValue.value, [...loadedRows]);
-      setPaginationRows();
-
-      loading.value = false;
     }
 
     function HandlePaginationChange(data) {
@@ -252,21 +243,31 @@ export default {
     }
 
     function HandleCategoryChange(category) {
-      let rowsToFilter = [...loadedRows]
-      
-      if (inputValue.value) {
-        rowsToFilter = filterRowsByTitle(inputValue.value, rowsToFilter);
-      }
-
       if (currentCategory.value ===  category) return;
       currentCategory.value = category;
-      rows.value = filterRowsByCategory(category, rowsToFilter);
-      setPaginationRows();
+      filterTable();
     }
 
     function HandleInputChange(data) {
       inputValue.value = data;
-    }    
+      TrottleTableUpdateAfterInputChange();     
+    }
+
+    function TrottleTableUpdateAfterInputChange() {
+      requestTableLoading(true);
+      inputEventTrottle.push(true);
+      if (inputEventTrottle.length < 1 ) {
+        inputEventTrottle.pop(), filterTable();
+      } else {
+        setTimeout(() => {
+          if (inputEventTrottle.length > 0) {
+            inputEventTrottle.pop(),filterTable();
+            inputEventTrottle = [];
+          }
+        }, 300)
+      }
+      requestTableLoading(false);           
+    }        
 
     return {
       rows,
